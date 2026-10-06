@@ -1,0 +1,119 @@
+{
+  "name": "Lead capture - AI triage - Sheets log",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Lead capture",
+        "formDescription": "Leave your details and we'll get back to you shortly.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "What do you need?",
+              "fieldType": "textarea",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0000-4000-8000-000000000001",
+      "name": "Lead form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [0, 0],
+      "webhookId": "5f6e7d8c-0000-4000-8000-1a2b3c4d5e6f"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer =PASTE_YOUR_OPENAI_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"model\": \"gpt-4o-mini\", \"temperature\": 0.3, \"messages\": [ { \"role\": \"system\", \"content\": \"You triage inbound leads. Reply with EXACTLY two lines: Line 1 - classification (Urgent / Standard / Spam). Line 2 - a short, friendly draft reply to the lead.\" }, { \"role\": \"user\", \"content\": \"Name: {{ $json.Name }}\nEmail: {{ $json.Email }}\nMessage: {{ $json['What do you need?'] }}\" } ] }",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0000-4000-8000-000000000002",
+      "name": "AI triage + draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $now.toISO() }}",
+            "Name": "={{ $('Lead form').item.json.Name }}",
+            "Email": "={{ $('Lead form').item.json.Email }}",
+            "Message": "={{ $('Lead form').item.json['What do you need?'] }}",
+            "AI triage": "={{ $json.choices[0].message.content }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0000-4000-8000-000000000003",
+      "name": "Log to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [440, 0]
+    }
+  ],
+  "connections": {
+    "Lead form": {
+      "main": [
+        [
+          {
+            "node": "AI triage + draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI triage + draft": {
+      "main": [
+        [
+          {
+            "node": "Log to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
